@@ -12,6 +12,7 @@ services:
     volumes:
       - ./data/zookeeper/data:/data # ./ pra indicar que a criação do volume deve ser feita na mesma pasta do docker-compose
       - ./data/zookeeper/datalog:/datalog
+
   kafka1:
     image: confluentinc/cp-kafka:5.3.0
     hostname: kafka1
@@ -28,6 +29,19 @@ services:
       - ./data/kafka1/data:/var/lib/kafka/data
     depends_on:
       - zookeeper
+
+  schemaregistry:
+    image: confluentinc/cp-schema-registry:5.1.2
+    restart: always
+    depends_on:
+      - zookeeper
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: "zookeeper:2181"
+      SCHEMA_REGISTRY_HOST_NAME: schemaregistry
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8085"
+    ports:
+      - "8085:8085"
+
   kafdrop: # Ferramenta de gerencimento do Kafka
     image: obsidiandynamics/kafdrop
     restart: "no"
