@@ -1,34 +1,37 @@
-version: '3'
+version: "3.0"
+
 services:
-  zookeeper: # Pré-requisito pra rodarmos o Kafka. Ele é responsável por criar e gerenciar tópicos, filas, conexões, etc.
-    image: zookeeper:3.4.9
-    hostname: zookeeper
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.1.2
+    restart: always
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: "2181"
+      ZOOKEEPER_TICK_TIME: "2000"
+      ZOOKEEPER_SERVERS: "zookeeper:22888:23888"
     ports:
       - "2181:2181"
-    environment:
-      ZOO_MY_ID: 1
-      ZOO_PORT: 2181
-      ZOO_SERVERS: server.1=zookeeper:2888:3888
-    volumes:
-      - ./data/zookeeper/data:/data # ./ pra indicar que a criação do volume deve ser feita na mesma pasta do docker-compose
-      - ./data/zookeeper/datalog:/datalog
 
   kafka1:
-    image: confluentinc/cp-kafka:5.3.0
-    hostname: kafka1
-    ports:
-      - "9091:9091"
-    environment:
-      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka1:19091,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9091
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_BROKER_ID: 1 # Podemos ter mais de um broker
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    volumes:
-      - ./data/kafka1/data:/var/lib/kafka/data
+    image: confluentinc/cp-enterprise-kafka:5.1.2
     depends_on:
       - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_ADVERTISED_HOST_NAME: kafka1
+      KAFKA_BROKER_ID: 1
+      KAFKA_BROKER_RACK: "r1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_SCHEMA_REGISTRY_URL: "schemaregistry:8085"
+      KAFKA_JMX_PORT: 9991
 
   schemaregistry:
     image: confluentinc/cp-schema-registry:5.1.2
@@ -41,19 +44,12 @@ services:
       SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8085"
     ports:
       - "8085:8085"
-
-  kafdrop: # Ferramenta de gerencimento do Kafka
+  kafdrop:
     image: obsidiandynamics/kafdrop
     restart: "no"
     ports:
       - "9000:9000"
     environment:
-      KAFKA_BROKERCONNECT: "kafka1:19091"
+      KAFKA_BROKERCONNECT: "kafka1:9092"
     depends_on:
       - kafka1
-
-#Sobre o Zookeeper: https://dattell.com/data-architecture-blog/what-is-zookeeper-how-does-it-support-kafka/
-#Detalhes das variáveis de ambiente:
-#Zookeper: https://hub.docker.com/_/zookeeper
-#Kafka: https://docs.confluent.io/platform/current/kafka/multi-node.html
-#Kafdrop: https://github.com/obsidiandynamics/kafdrop
